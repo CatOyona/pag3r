@@ -1,5 +1,6 @@
 #include "Ui.h"
 #include "Config.h"
+#include <Fonts/FreeSans9pt7b.h>
 
 namespace {
 
@@ -20,7 +21,7 @@ const Notif kDemo[] = {
 constexpr int kDemoCount = sizeof(kDemo) / sizeof(kDemo[0]);
 constexpr int kVisibleRows = 4;
 constexpr int kHeaderH = 20;
-constexpr int kFooterH = 12;
+constexpr int kFooterH = 15;
 constexpr int kRowH = 25;
 
 }  // namespace
@@ -53,10 +54,12 @@ void Ui::setEvent(const char *name) {
 void Ui::handleInput(Buttons &b) {
     if (b.pressed(Btn::Up)) {
         if (_sel > 0) _sel--;
+        else _sel = kDemoCount - 1;
         setEvent("Haut");
     }
     if (b.pressed(Btn::Down)) {
         if (_sel < kDemoCount - 1) _sel++;
+        else _sel = 0;
         setEvent("Bas");
     }
     if (b.pressed(Btn::Action)) {
@@ -75,6 +78,13 @@ void Ui::handleInput(Buttons &b) {
     }
 }
 
+void Ui::updateBattery(Battery &b) {
+    int perc = b.getPercentage();
+    const uint16_t* ico = b.getIcon();
+    if (perc != _batteryPercentage) { _batteryPercentage = perc; _dirty = true; }
+    if (ico != _batteryIcon) {_batteryIcon = ico; _dirty = true;}
+}
+
 void Ui::drawHeader() {
     // Heure provisoire = temps écoulé depuis le démarrage.
     // Elle sera remplacée par une horloge synchronisée par le téléphone.
@@ -91,8 +101,12 @@ void Ui::drawHeader() {
     _canvas.setCursor(6, 3);
     _canvas.print(buf);
 
-    _canvas.setCursor(cfg::SCREEN_W - 70, 6);
-    _canvas.print("Bat --%");
+    drawIcon(cfg::SCREEN_W - 84, 2, _batteryIcon, 32, 16);
+    _canvas.setCursor(cfg::SCREEN_W - 50, 3);
+    char batt[8];
+    if (_batteryPercentage < 0) snprintf(batt, sizeof(batt), "--%%");
+    else snprintf(batt, sizeof(batt), "%d%%", _batteryPercentage);
+    _canvas.print(batt);
 }
 
 void Ui::drawList() {
@@ -143,12 +157,21 @@ void Ui::drawDetail() {
 
 void Ui::drawFooter() {
     const int y = cfg::SCREEN_H - kFooterH;
-    _canvas.fillRect(0, y, cfg::SCREEN_W, kFooterH, ST77XX_BLACK);
-    _canvas.setTextSize(1);
+    _canvas.fillRect(0, y, cfg::SCREEN_W, kFooterH, ST77XX_BLUE);
+    _canvas.setTextSize(1.75f);
     _canvas.setTextColor(ST77XX_GREEN);
     _canvas.setCursor(4, y + 2);
     _canvas.print("Dernier bouton: ");
     _canvas.print(_event);
+}
+
+void Ui::drawIcon(int x, int y, const uint16_t *icon, int w, int h) {
+    for (int j = 0; j < h; j++) {
+        for (int i = 0; i < w; i++) {
+            const uint16_t c = icon[j * w + i];
+            if (c != 0x000) _canvas.drawPixel(x + i, y + j, c);
+        }
+    }
 }
 
 void Ui::draw() {
