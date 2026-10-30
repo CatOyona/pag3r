@@ -1,6 +1,6 @@
 #include "Ui.h"
 #include "Config.h"
-#include <Fonts/FreeSans9pt7b.h>
+#include "TextUtils.h"
 
 namespace {
 
@@ -16,13 +16,14 @@ const Notif kDemo[] = {
     {"Agenda",   "TP RCA",    "Demain 8h, salle 204"},
     {"Chat",     "Groupe",    "On se retrouve a 18h ?"},
     {"Livraison", "Colis",    "Votre colis arrive aujourd'hui"},
-    {"Systeme",  "Batterie",  "Batterie du telephone faible"},
+    {"Systeme",  "Battérie",  "Batterie du telephone faible"},
 };
 constexpr int kDemoCount = sizeof(kDemo) / sizeof(kDemo[0]);
 constexpr int kVisibleRows = 4;
 constexpr int kHeaderH = 20;
 constexpr int kFooterH = 15;
 constexpr int kRowH = 25;
+constexpr uint16_t kGrey = 0x7BEF;
 
 }  // namespace
 
@@ -41,6 +42,8 @@ void Ui::begin() {
     _tft.init(135, 240);
     _tft.setRotation(3);  // paysage 240x135
     _tft.fillScreen(ST77XX_BLACK);
+
+    _u8g2.begin(_canvas);
 
     _canvas.setTextWrap(false);
     _dirty = true;
@@ -95,25 +98,22 @@ void Ui::drawHeader() {
              (unsigned long)((s / 60) % 60),
              (unsigned long)(s % 60));
 
-    _canvas.fillRect(0, 0, cfg::SCREEN_W, kHeaderH, ST77XX_BLUE);
-    _canvas.setTextColor(ST77XX_WHITE);
-    _canvas.setTextSize(2);
-    _canvas.setCursor(6, 3);
-    _canvas.print(buf);
+    _canvas.fillRect(0, 0, cfg::SCREEN_W, kHeaderH, ST77XX_ORANGE);
+    setFont(u8g2_font_helvR14_tf, ST77XX_WHITE);
+    _u8g2.drawUTF8(6, 17, buf);
 
     drawIcon(cfg::SCREEN_W - 84, 2, _batteryIcon, 32, 16);
-    _canvas.setCursor(cfg::SCREEN_W - 50, 3);
     char batt[8];
     if (_batteryPercentage < 0) snprintf(batt, sizeof(batt), "--%%");
     else snprintf(batt, sizeof(batt), "%d%%", _batteryPercentage);
-    _canvas.print(batt);
+    setFont(u8g2_font_helvR14_tf, ST77XX_WHITE);
+    _u8g2.drawUTF8(cfg::SCREEN_W - 50, 17, batt);
 }
 
 void Ui::drawList() {
     int first = 0;
     if (_sel >= kVisibleRows) first = _sel - kVisibleRows + 1;
 
-    _canvas.setTextSize(2);
     for (int row = 0; row < kVisibleRows; row++) {
         const int i = first + row;
         if (i >= kDemoCount) break;
@@ -123,46 +123,47 @@ void Ui::drawList() {
 
         if (selected) {
             _canvas.fillRect(0, y, cfg::SCREEN_W, kRowH - 2, ST77XX_WHITE);
-            _canvas.setTextColor(ST77XX_BLACK);
-        } else {
-            _canvas.setTextColor(ST77XX_WHITE);
         }
 
         char line[40];
         snprintf(line, sizeof(line), "%s: %s", kDemo[i].app, kDemo[i].title);
-        _canvas.setCursor(6, y + 4);
-        _canvas.print(line);
+        setFont(selected ? u8g2_font_helvB12_tf : u8g2_font_helvR12_tf, selected ? ST77XX_BLACK : ST77XX_WHITE);
+        _u8g2.drawUTF8(6, y + 16, line);
     }
 }
 
 void Ui::drawDetail() {
     const Notif &n = kDemo[_sel];
+    const int x = 6;
+    const int maxW = cfg::SCREEN_W - 2 * x;
+    char buf[48];
 
-    _canvas.setTextWrap(true);
-    _canvas.setTextColor(ST77XX_YELLOW);
-    _canvas.setTextSize(2);
-    _canvas.setCursor(6, kHeaderH + 6);
-    _canvas.print(n.app);
+    // Application (petit, jaune)
+    setFont(u8g2_font_helvR10_tf, ST77XX_YELLOW);
+    textutils::fitText(_u8g2, n.app, buf, sizeof(buf), maxW);
+    _u8g2.drawUTF8(x, kHeaderH + 16, buf);
 
-    _canvas.setTextColor(ST77XX_WHITE);
-    _canvas.setCursor(6, kHeaderH + 28);
-    _canvas.print(n.title);
+    // Titre (gras, blanc)
+    setFont(u8g2_font_helvB14_tf, ST77XX_WHITE);
+    textutils::fitText(_u8g2, n.title, buf, sizeof(buf), maxW);
+    _u8g2.drawUTF8(x, kHeaderH + 40, buf);
 
-    _canvas.setTextSize(1);
-    _canvas.setTextColor(ST77XX_CYAN);
-    _canvas.setCursor(6, kHeaderH + 54);
-    _canvas.print(n.text);
-    _canvas.setTextWrap(false);
+    // Séparateur
+    _canvas.drawFastHLine(x, kHeaderH + 46, maxW, kGrey);
+
+    // Texte, sur 3 lignes maximum
+    setFont(u8g2_font_helvR10_tf, ST77XX_CYAN);
+    textutils::drawWrapped(_u8g2, n.text, x, kHeaderH + 64, 14, maxW, 3);
 }
 
 void Ui::drawFooter() {
     const int y = cfg::SCREEN_H - kFooterH;
-    _canvas.fillRect(0, y, cfg::SCREEN_W, kFooterH, ST77XX_BLUE);
-    _canvas.setTextSize(1.75f);
-    _canvas.setTextColor(ST77XX_GREEN);
-    _canvas.setCursor(4, y + 2);
-    _canvas.print("Dernier bouton: ");
-    _canvas.print(_event);
+    _canvas.fillRect(0, y, cfg::SCREEN_W, kFooterH, ST77XX_ORANGE);
+
+    char line[64];
+    snprintf(line, sizeof(line), "Dernier bouton: %s", _event);
+    setFont(u8g2_font_helvR10_tf, ST77XX_WHITE);
+    _u8g2.drawUTF8(4, y + 13, line);
 }
 
 void Ui::drawIcon(int x, int y, const uint16_t *icon, int w, int h) {
@@ -172,6 +173,12 @@ void Ui::drawIcon(int x, int y, const uint16_t *icon, int w, int h) {
             if (c != 0x000) _canvas.drawPixel(x + i, y + j, c);
         }
     }
+}
+
+void Ui::setFont(const uint8_t *font, uint16_t color) {
+    _u8g2.setFont(font);
+    _u8g2.setForegroundColor(color);
+    _u8g2.setFontMode(1);
 }
 
 void Ui::draw() {
