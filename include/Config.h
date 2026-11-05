@@ -27,6 +27,8 @@ namespace cfg {
 
 constexpr int SCREEN_W = 240;
 constexpr int SCREEN_H = 135;
+constexpr int HEADER_H = 20;
+constexpr int FOOTER_H = 15;
 
 // Boutons (numéros de GPIO). -1 = bouton absent.
 constexpr int PIN_BTN_ACTION = 1;   // D1 : actif à l'état HAUT

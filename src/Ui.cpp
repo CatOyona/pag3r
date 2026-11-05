@@ -20,8 +20,8 @@ const Notif kDemo[] = {
 };
 constexpr int kDemoCount = sizeof(kDemo) / sizeof(kDemo[0]);
 constexpr int kVisibleRows = 4;
-constexpr int kHeaderH = 20;
-constexpr int kFooterH = 15;
+constexpr int kHeaderH = cfg::HEADER_H;
+constexpr int kFooterH = cfg::FOOTER_H;
 constexpr int kRowH = 25;
 constexpr uint16_t kGrey = 0x7BEF;
 
