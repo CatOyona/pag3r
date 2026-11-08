@@ -81,18 +81,9 @@ void Ui::updateBattery(Battery &b) {
 }
 
 void Ui::drawHeader() {
-    // Heure provisoire = temps écoulé depuis le démarrage.
-    // Elle sera remplacée par une horloge synchronisée par le téléphone.
-    const uint32_t s = millis() / 1000;
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%02lu:%02lu:%02lu",
-             (unsigned long)((s / 3600) % 100),
-             (unsigned long)((s / 60) % 60),
-             (unsigned long)(s % 60));
-
     _canvas.fillRect(0, 0, cfg::SCREEN_W, kHeaderH, ST77XX_ORANGE);
     setFont(u8g2_font_helvR14_tf, ST77XX_WHITE);
-    _u8g2.drawUTF8(6, 17, buf);
+    _u8g2.drawUTF8(6, 17, _timeText);
 
     drawIcon(cfg::SCREEN_W - 84, 2, _batteryIcon, 32, 16);
     char batt[8];
@@ -179,4 +170,18 @@ void Ui::draw() {
     drawFooter();
 
     _tft.drawRGBBitmap(0, 0, _canvas.getBuffer(), cfg::SCREEN_W, cfg::SCREEN_H);
+}
+
+void Ui::updateClock(const Clock &c) {
+    struct tm t;
+    char buf[9];
+    if (c.getLocal(t)) {
+        strftime(buf, sizeof(buf), "%H:%M:%S", &t);
+    } else {
+        strcpy(buf, "--:--:--");
+    }
+    if (!strcmp(buf, _timeText) == 0) {
+        _dirty = true;
+        strcpy(_timeText, buf);
+    }
 }

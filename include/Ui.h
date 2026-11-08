@@ -9,6 +9,7 @@
 #include "ListMenu.h"
 #include "DetailScreen.h"
 #include "IconMenu.h"
+#include "Clock.h"
 
 class Ui {
     public:
@@ -17,6 +18,7 @@ class Ui {
         void handleInput(Buttons &btns);
         void updateBattery(Battery &b);
         void draw();
+        void updateClock(const Clock& c);
 
     private:
         void drawHeader();
@@ -35,6 +37,7 @@ class Ui {
         int      _batteryPercentage = -1;
         bool     _dirty = true;
         uint32_t _lastSecond = 0xFFFFFFFF;
+        char     _timeText[9];
         const uint16_t* _batteryIcon = ICON_BATTERY_UNKNOWN;
         U8G2_FOR_ADAFRUIT_GFX _u8g2;
 };
