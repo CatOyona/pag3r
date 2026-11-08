@@ -67,3 +67,8 @@ bool ScreenManager::isDirty() const {
     const Screen *s = _stack.peek();
     return s && s->isDirty();
 }
+
+FooterHints ScreenManager::footerHints() const {
+    const Screen *s = _stack.peek();
+    return s ? s->footerHints() : FooterHints();
+}

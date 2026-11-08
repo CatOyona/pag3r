@@ -5,9 +5,11 @@
 #include "Buttons.h"
 #include "Battery.h"
 #include "Icons.h"
+#include "ScreenManager.h"
+#include "ListMenu.h"
+#include "DetailScreen.h"
+#include "IconMenu.h"
 
-// Interface de test : liste de fausses notifications + écran de détail.
-// Plus tard, les données viendront d'un NotificationStore alimenté en BLE.
 class Ui {
     public:
         Ui();
@@ -17,25 +19,22 @@ class Ui {
         void draw();
 
     private:
-        enum class Screen { List, Detail };
-
         void drawHeader();
-        void drawList();
-        void drawDetail();
         void drawFooter();
-        void setEvent(const char *name);
         void drawIcon(int x, int y, const uint16_t *icon, int w, int h);
         void setFont(const uint8_t * font, uint16_t color);
 
         Adafruit_ST7789 _tft;
-        GFXcanvas16     _canvas;  // dessin hors écran, puis envoi d'un bloc : pas de scintillement
+        GFXcanvas16     _canvas;
 
-        Screen   _screen = Screen::List;
-        int      _sel = 0;
+        ScreenManager   _manager;
+        ListMenu        _notifList;
+        DetailScreen    _notifDetail;
+        IconMenu        _mainMenu;
+
         int      _batteryPercentage = -1;
         bool     _dirty = true;
         uint32_t _lastSecond = 0xFFFFFFFF;
-        char     _event[24] = "-";
         const uint16_t* _batteryIcon = ICON_BATTERY_UNKNOWN;
         U8G2_FOR_ADAFRUIT_GFX _u8g2;
 };

@@ -1,15 +1,10 @@
 #include "Ui.h"
 #include "Config.h"
 #include "TextUtils.h"
+#include "Icons.h"
+#include "Notification.h"
 
 namespace {
-
-struct Notif {
-    const char *app;
-    const char *title;
-    const char *text;
-};
-
 const Notif kDemo[] = {
     {"Messages", "Maman",     "Tu rentres ce soir ?"},
     {"Mail",     "Polytech",  "Rappel : rendu du projet vendredi"},
@@ -19,17 +14,33 @@ const Notif kDemo[] = {
     {"Systeme",  "Battérie",  "Batterie du telephone faible"},
 };
 constexpr int kDemoCount = sizeof(kDemo) / sizeof(kDemo[0]);
-constexpr int kVisibleRows = 4;
+const IconMenu::Item kMenuItems[] = {
+    {"Notifications", ICON_BELL, 64, 64, ScreenId::NotifList},
+    {"Réglages", ICON_SETTINGS, 64, 64, ScreenId::NotifDetail},
+};
+constexpr int kMenuCount = sizeof(kMenuItems) / sizeof(kMenuItems[0]);
 constexpr int kHeaderH = cfg::HEADER_H;
 constexpr int kFooterH = cfg::FOOTER_H;
-constexpr int kRowH = 25;
-constexpr uint16_t kGrey = 0x7BEF;
+constexpr int kButtonIconW = 16;
+constexpr int kButtonIconH = 15;
+constexpr int kButtonGap   = 2;
+
+void notifLabel(int i, char *out, size_t n) {
+    snprintf(out, n, "%s: %s", kDemo[i].app, kDemo[i].title);
+}
+
+const Notif& notifAt(int i) {
+    return kDemo[i];
+}
 
 }  // namespace
 
 Ui::Ui()
     : _tft(TFT_CS, TFT_DC, TFT_RST),
-      _canvas(cfg::SCREEN_W, cfg::SCREEN_H) {}
+      _canvas(cfg::SCREEN_W, cfg::SCREEN_H),
+      _notifList(notifLabel, kDemoCount, ScreenId::NotifDetail),
+      _notifDetail(notifAt),
+      _mainMenu(kMenuItems, kMenuCount) {}
 
 void Ui::begin() {
     // Rétroéclairage et alimentation de l'écran
@@ -46,39 +57,20 @@ void Ui::begin() {
     _u8g2.begin(_canvas);
 
     _canvas.setTextWrap(false);
-    _dirty = true;
-}
 
-void Ui::setEvent(const char *name) {
-    snprintf(_event, sizeof(_event), "%s", name);
+    // Enregistrement des écrans (une seule fois), puis écran de départ
+    _manager.registerScreen(ScreenId::NotifList, &_notifList);
+    _manager.registerScreen(ScreenId::NotifDetail, &_notifDetail);
+    _manager.registerScreen(ScreenId::MainMenu, &_mainMenu);
+    _manager.begin(ScreenId::MainMenu);
+
     _dirty = true;
 }
 
 void Ui::handleInput(Buttons &b) {
-    if (b.pressed(Btn::Up)) {
-        if (_sel > 0) _sel--;
-        else _sel = kDemoCount - 1;
-        setEvent("Haut");
-    }
-    if (b.pressed(Btn::Down)) {
-        if (_sel < kDemoCount - 1) _sel++;
-        else _sel = 0;
-        setEvent("Bas");
-    }
-    if (b.pressed(Btn::Action)) {
-        _screen = (_screen == Screen::List) ? Screen::Detail : Screen::List;
-        setEvent("Action 1");
-    }
-    if (b.longPressed(Btn::Action)) {
-        setEvent("Action 1 (long)");
-    }
-    if (b.pressed(Btn::Action2)) {
-        _screen = Screen::List;
-        setEvent("Action 2");
-    }
-    if (b.longPressed(Btn::Action2)) {
-        setEvent("Action 2 (long)");
-    }
+    // Les boutons sont consommés par l'écran actif : c'est lui qui décide quoi en faire.
+    _manager.handleInput(b);
+    b.clearEvents();
 }
 
 void Ui::updateBattery(Battery &b) {
@@ -110,60 +102,52 @@ void Ui::drawHeader() {
     _u8g2.drawUTF8(cfg::SCREEN_W - 50, 17, batt);
 }
 
-void Ui::drawList() {
-    int first = 0;
-    if (_sel >= kVisibleRows) first = _sel - kVisibleRows + 1;
-
-    for (int row = 0; row < kVisibleRows; row++) {
-        const int i = first + row;
-        if (i >= kDemoCount) break;
-
-        const int y = kHeaderH + 2 + row * kRowH;
-        const bool selected = (i == _sel);
-
-        if (selected) {
-            _canvas.fillRect(0, y, cfg::SCREEN_W, kRowH - 2, ST77XX_WHITE);
-        }
-
-        char line[40];
-        snprintf(line, sizeof(line), "%s: %s", kDemo[i].app, kDemo[i].title);
-        setFont(selected ? u8g2_font_helvB12_tf : u8g2_font_helvR12_tf, selected ? ST77XX_BLACK : ST77XX_WHITE);
-        _u8g2.drawUTF8(6, y + 16, line);
-    }
-}
-
-void Ui::drawDetail() {
-    const Notif &n = kDemo[_sel];
-    const int x = 6;
-    const int maxW = cfg::SCREEN_W - 2 * x;
-    char buf[48];
-
-    // Application (petit, jaune)
-    setFont(u8g2_font_helvR10_tf, ST77XX_YELLOW);
-    textutils::fitText(_u8g2, n.app, buf, sizeof(buf), maxW);
-    _u8g2.drawUTF8(x, kHeaderH + 16, buf);
-
-    // Titre (gras, blanc)
-    setFont(u8g2_font_helvB14_tf, ST77XX_WHITE);
-    textutils::fitText(_u8g2, n.title, buf, sizeof(buf), maxW);
-    _u8g2.drawUTF8(x, kHeaderH + 40, buf);
-
-    // Séparateur
-    _canvas.drawFastHLine(x, kHeaderH + 46, maxW, kGrey);
-
-    // Texte, sur 3 lignes maximum
-    setFont(u8g2_font_helvR10_tf, ST77XX_CYAN);
-    textutils::drawWrapped(_u8g2, n.text, x, kHeaderH + 64, 14, maxW, 3);
-}
-
 void Ui::drawFooter() {
     const int y = cfg::SCREEN_H - kFooterH;
     _canvas.fillRect(0, y, cfg::SCREEN_W, kFooterH, ST77XX_ORANGE);
 
-    char line[64];
-    snprintf(line, sizeof(line), "Dernier bouton: %s", _event);
-    setFont(u8g2_font_helvR10_tf, ST77XX_WHITE);
-    _u8g2.drawUTF8(4, y + 13, line);
+    const FooterHints h = _manager.footerHints();
+    const char *label[4]    = { h.up, h.down, h.press, h.hold };
+    const uint16_t *icon[4] = { ICON_BUTTON_UP, ICON_BUTTON_DOWN,
+                                ICON_BUTTON_ACTION, ICON_BUTTON_ACTION_HOLD };
+
+    setFont(u8g2_font_helvR10_tf, ST77XX_WHITE);   // avant toute mesure
+
+    // 1) Largeur réelle du texte de chaque aide
+    int textW[4] = {0, 0, 0, 0};
+    int n = 0, sumText = 0;
+    for (int i = 0; i < 4; i++) {
+        if (!label[i]) continue;
+        textW[i] = _u8g2.getUTF8Width(label[i]);
+        sumText += textW[i];
+        n++;
+    }
+    if (n == 0) return;
+
+    // 2) Si l'ensemble ne tient pas, on plafonne la largeur de chaque texte
+    const int fixedPerCell = kButtonIconW + kButtonGap;        // icône + espace avant le texte
+    const int minMargin    = 4;
+    const int availText    = cfg::SCREEN_W - n * fixedPerCell - (n + 1) * minMargin;
+    const int cap          = (sumText > availText) ? availText / n : 1000;
+
+    char fit[4][24];
+    int used = 0;
+    for (int i = 0; i < 4; i++) {
+        if (!label[i]) continue;
+        textutils::fitText(_u8g2, label[i], fit[i], sizeof(fit[i]), cap);
+        textW[i] = _u8g2.getUTF8Width(fit[i]);
+        used += fixedPerCell + textW[i];
+    }
+
+    // 3) L'espace restant est réparti en marges égales (aux bords et entre les aides)
+    const int margin = (cfg::SCREEN_W - used) / (n + 1);
+    int x = margin;
+    for (int i = 0; i < 4; i++) {
+        if (!label[i]) continue;
+        drawIcon(x, y + (kFooterH - kButtonIconH) / 2, icon[i], kButtonIconW, kButtonIconH);
+        _u8g2.drawUTF8(x + fixedPerCell, y + 13, fit[i]);
+        x += fixedPerCell + textW[i] + margin;
+    }
 }
 
 void Ui::drawIcon(int x, int y, const uint16_t *icon, int w, int h) {
@@ -182,16 +166,16 @@ void Ui::setFont(const uint8_t *font, uint16_t color) {
 }
 
 void Ui::draw() {
-    // Redessine si un événement est arrivé ou si la seconde a changé
+    // Redessine si Ui a changé (batterie...), si l'écran actif le demande,
+    // ou si la seconde a changé (horloge de l'en-tête)
     const uint32_t sec = millis() / 1000;
-    if (!_dirty && sec == _lastSecond) return;
+    if (!_dirty && !_manager.isDirty() && sec == _lastSecond) return;
     _lastSecond = sec;
     _dirty = false;
 
-    _canvas.fillScreen(ST77XX_BLACK);
+    _canvas.fillScreen(0xef5d);
     drawHeader();
-    if (_screen == Screen::List) drawList();
-    else                         drawDetail();
+    _manager.draw(_canvas, _u8g2);   // zone centrale
     drawFooter();
 
     _tft.drawRGBBitmap(0, 0, _canvas.getBuffer(), cfg::SCREEN_W, cfg::SCREEN_H);

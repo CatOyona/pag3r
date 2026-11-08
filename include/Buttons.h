@@ -15,6 +15,7 @@ public:
     bool pressed(Btn b);
     bool longPressed(Btn b);
     bool isDown(Btn b) const;
+    void clearEvents();
 
 private:
     struct State {

@@ -68,3 +68,7 @@ bool Buttons::longPressed(Btn b) {
 bool Buttons::isDown(Btn b) const {
     return _s[idx(b)].stable;
 }
+
+void Buttons::clearEvents() {
+    for (auto &s : _s) { s.pressedFlag = false; s.longFlag = false; }
+}
