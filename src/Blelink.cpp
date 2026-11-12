@@ -4,11 +4,16 @@ namespace {
     // UUID du service pager. Les caractéristiques ne changent que les 4 premiers chiffres.
     constexpr const char *kServiceUuid = "4111f001-810e-4953-9fb2-393ca444e99c";
     constexpr const char *kTimeUuid    = "4111f002-810e-4953-9fb2-393ca444e99c";
+    constexpr const char *kStatusUuid  = "4111f003-810e-4953-9fb2-393ca444e99c";
 
     constexpr int kQueueLen = 8;
 
     // Taille attendue du paquet « heure » : uint32 + int16
     constexpr size_t kTimePacketLen = 6;
+
+    // Paquet « état du téléphone » : batterie, drapeaux, signal
+    constexpr size_t  kStatusPacketLen = 3;
+    constexpr uint8_t kUnknown         = 0xFF;
 
     // Une heure antérieure à 2020 est forcément une erreur d'envoi : on l'ignore.
     constexpr uint32_t kMinPlausibleEpoch = 1577836800UL;
@@ -18,15 +23,17 @@ namespace {
 
 void BleLink::ServerCb::onConnect(NimBLEServer *, NimBLEConnInfo &) {
     _o._connected = true;
+    _o.push(BleEvent::Type::Connected, nullptr, 0);
 }
 
 void BleLink::ServerCb::onDisconnect(NimBLEServer *, NimBLEConnInfo &, int) {
     _o._connected = false;           // l'annonce redémarre toute seule (advertiseOnDisconnect)
+    _o.push(BleEvent::Type::Disconnected, nullptr, 0);   // loop() invalidera l'état du téléphone
 }
 
-void BleLink::TimeCb::onWrite(NimBLECharacteristic *chr, NimBLEConnInfo &) {
+void BleLink::WriteCb::onWrite(NimBLECharacteristic *chr, NimBLEConnInfo &) {
     const NimBLEAttValue value = chr->getValue();    // copie des octets reçus
-    _o.push(BleEvent::Type::Time, value.data(), value.length());
+    _o.push(_type, value.data(), value.length());
 }
 
 // Dépose un message dans la file ; loop() le lira. On ne bloque jamais (timeout 0).
@@ -36,7 +43,7 @@ void BleLink::push(BleEvent::Type type, const uint8_t *data, size_t len) {
     BleEvent e;
     e.type = type;
     e.len  = static_cast<uint8_t>(len < sizeof(e.data) ? len : sizeof(e.data));
-    memcpy(e.data, data, e.len);
+    if (e.len > 0) memcpy(e.data, data, e.len);
     xQueueSend(_queue, &e, 0);
 }
 
@@ -59,6 +66,10 @@ void BleLink::begin() {
     NimBLECharacteristic *timeChr = pager->createCharacteristic(kTimeUuid, NIMBLE_PROPERTY::WRITE);
     timeChr->setCallbacks(&_timeCb);
 
+    // Caractéristique « état du téléphone », en écriture
+    NimBLECharacteristic *statusChr = pager->createCharacteristic(kStatusUuid, NIMBLE_PROPERTY::WRITE);
+    statusChr->setCallbacks(&_statusCb);
+
     // Service batterie standard (0x180F), niveau (0x2A19) : lisible et notifiable
     NimBLEService *battery = server->createService("180F");
     _batteryChar = battery->createCharacteristic("2A19", NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
@@ -74,7 +85,7 @@ void BleLink::begin() {
 
 // ---------------------------------------------------------------- loop()
 
-void BleLink::update(Clock &clock) {
+void BleLink::update(Clock &clock, PhoneStatus &phone) {
     if (!_queue) return;
 
     BleEvent e;
@@ -90,6 +101,21 @@ void BleLink::update(Clock &clock) {
                 clock.setUtc(epoch, tzMinutes);
                 break;
             }
+            case BleEvent::Type::PhoneStatus: {
+                if (e.len < kStatusPacketLen) break;
+                phone.connected = true;
+                phone.battery   = (e.data[0] == kUnknown || e.data[0] > 100) ? -1 : e.data[0];
+                phone.charging  = (e.data[1] & 0x01) != 0;
+                phone.signal    = (e.data[2] == kUnknown || e.data[2] > 4) ? -1 : e.data[2];
+                break;
+            }
+            case BleEvent::Type::Disconnected:
+                phone = PhoneStatus();       // tout repasse à « inconnu »
+                break;
+            case BleEvent::Type::Connected:
+                phone = PhoneStatus();
+                phone.connected = true;
+                break;
         }
     }
 }

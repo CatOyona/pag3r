@@ -10,10 +10,12 @@
 #include "DetailScreen.h"
 #include "IconMenu.h"
 #include "Clock.h"
+#include "PhoneScreen.h"
+#include "PhoneStatus.h"
 
 class Ui {
     public:
-        Ui();
+        Ui(const PhoneStatus& status);
         void begin();
         void handleInput(Buttons &btns);
         void updateBattery(Battery &b);
@@ -33,11 +35,12 @@ class Ui {
         ListMenu        _notifList;
         DetailScreen    _notifDetail;
         IconMenu        _mainMenu;
+        PhoneScreen     _phoneDetail;
 
         int      _batteryPercentage = -1;
         bool     _dirty = true;
         uint32_t _lastSecond = 0xFFFFFFFF;
-        char     _timeText[9];
+        char     _timeText[9] = "--:--:--";
         const uint16_t* _batteryIcon = ICON_BATTERY_UNKNOWN;
         U8G2_FOR_ADAFRUIT_GFX _u8g2;
 };

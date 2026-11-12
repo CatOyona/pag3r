@@ -9,6 +9,7 @@ enum class ScreenId : uint8_t {
     MainMenu,
     NotifList,
     NotifDetail,
+    PhoneDetail,
     Count
 };
 

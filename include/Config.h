@@ -35,6 +35,8 @@ constexpr int PIN_BTN_ACTION = 1;   // D1 : actif à l'état HAUT
 constexpr int PIN_BTN_UP      = 0;   // D0 : actif à l'état BAS (aussi bouton BOOT)
 constexpr int PIN_BTN_DOWN    = 2;   // D2 : actif à l'état HAUT
 
+constexpr int PIN_VIB = 5; //Pin du vibreur
+
 constexpr uint32_t DEBOUNCE_MS   = 25;
 constexpr uint32_t LONG_PRESS_MS = 600;
 

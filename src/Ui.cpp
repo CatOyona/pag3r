@@ -16,7 +16,8 @@ const Notif kDemo[] = {
 constexpr int kDemoCount = sizeof(kDemo) / sizeof(kDemo[0]);
 const IconMenu::Item kMenuItems[] = {
     {"Notifications", ICON_BELL, 64, 64, ScreenId::NotifList},
-    {"Réglages", ICON_SETTINGS, 64, 64, ScreenId::NotifDetail},
+    {"Téléphone", ICON_PHONE, 64, 64, ScreenId::PhoneDetail},
+    {"Réglages", ICON_SETTINGS, 64, 64, ScreenId::NotifDetail}
 };
 constexpr int kMenuCount = sizeof(kMenuItems) / sizeof(kMenuItems[0]);
 constexpr int kHeaderH = cfg::HEADER_H;
@@ -35,12 +36,13 @@ const Notif& notifAt(int i) {
 
 }  // namespace
 
-Ui::Ui()
+Ui::Ui(const PhoneStatus &status)
     : _tft(TFT_CS, TFT_DC, TFT_RST),
       _canvas(cfg::SCREEN_W, cfg::SCREEN_H),
       _notifList(notifLabel, kDemoCount, ScreenId::NotifDetail),
       _notifDetail(notifAt),
-      _mainMenu(kMenuItems, kMenuCount) {}
+      _mainMenu(kMenuItems, kMenuCount),
+      _phoneDetail(status) {}
 
 void Ui::begin() {
     // Rétroéclairage et alimentation de l'écran
@@ -62,6 +64,7 @@ void Ui::begin() {
     _manager.registerScreen(ScreenId::NotifList, &_notifList);
     _manager.registerScreen(ScreenId::NotifDetail, &_notifDetail);
     _manager.registerScreen(ScreenId::MainMenu, &_mainMenu);
+    _manager.registerScreen(ScreenId::PhoneDetail, &_phoneDetail);
     _manager.begin(ScreenId::MainMenu);
 
     _dirty = true;
