@@ -5,35 +5,34 @@
 #include "Notification.h"
 
 namespace {
-const Notif kDemo[] = {
-    {"Messages", "Maman",     "Tu rentres ce soir ?"},
-    {"Mail",     "Polytech",  "Rappel : rendu du projet vendredi"},
-    {"Agenda",   "TP RCA",    "Demain 8h, salle 204"},
-    {"Chat",     "Groupe",    "On se retrouve a 18h ?"},
-    {"Livraison", "Colis",    "Votre colis arrive aujourd'hui"},
-    {"Systeme",  "Battérie",  "Batterie du telephone faible"},
-};
-constexpr int kDemoCount = sizeof(kDemo) / sizeof(kDemo[0]);
-const IconMenu::Item kMenuItems[] = {
-    {"Notifications", ICON_BELL, 64, 64, ScreenId::NotifList},
-    {"Téléphone", ICON_PHONE, 64, 64, ScreenId::PhoneDetail},
-    {"Réglages", ICON_SETTINGS, 64, 64, ScreenId::NotifDetail}
-};
-constexpr int kMenuCount = sizeof(kMenuItems) / sizeof(kMenuItems[0]);
-constexpr int kHeaderH = cfg::HEADER_H;
-constexpr int kFooterH = cfg::FOOTER_H;
-constexpr int kButtonIconW = 16;
-constexpr int kButtonIconH = 15;
-constexpr int kButtonGap   = 2;
+    const Notif kDemo[] = {
+        {"Messages", "Maman",     "Tu rentres ce soir ?"},
+        {"Mail",     "Polytech",  "Rappel : rendu du projet vendredi"},
+        {"Agenda",   "TP RCA",    "Demain 8h, salle 204"},
+        {"Chat",     "Groupe",    "On se retrouve a 18h ?"},
+        {"Livraison", "Colis",    "Votre colis arrive aujourd'hui"},
+        {"Systeme",  "Battérie",  "Batterie du telephone faible"},
+    };
+    constexpr int kDemoCount = sizeof(kDemo) / sizeof(kDemo[0]);
+    const IconMenu::Item kMenuItems[] = {
+        {"Notifications", ICON_BELL, 64, 64, ScreenId::NotifList},
+        {"Téléphone", ICON_PHONE, 64, 64, ScreenId::PhoneDetail},
+        {"Réglages", ICON_SETTINGS, 64, 64, ScreenId::NotifDetail}
+    };
+    constexpr int kMenuCount = sizeof(kMenuItems) / sizeof(kMenuItems[0]);
+    constexpr int kHeaderH = cfg::HEADER_H;
+    constexpr int kFooterH = cfg::FOOTER_H;
+    constexpr int kButtonIconW = 16;
+    constexpr int kButtonIconH = 15;
+    constexpr int kButtonGap   = 2;
 
-void notifLabel(int i, char *out, size_t n) {
-    snprintf(out, n, "%s: %s", kDemo[i].app, kDemo[i].title);
-}
+    void notifLabel(int i, char *out, size_t n) {
+        snprintf(out, n, "%s: %s", kDemo[i].app, kDemo[i].title);
+    }
 
-const Notif& notifAt(int i) {
-    return kDemo[i];
-}
-
+    const Notif& notifAt(int i) {
+        return kDemo[i];
+    }
 }  // namespace
 
 Ui::Ui(const PhoneStatus &status)

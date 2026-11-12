@@ -1,10 +1,13 @@
 #include "BleLink.h"
+#include "NotificationStore.h"
+#include "Haptics.h"
 
 namespace {
     // UUID du service pager. Les caractéristiques ne changent que les 4 premiers chiffres.
     constexpr const char *kServiceUuid = "4111f001-810e-4953-9fb2-393ca444e99c";
     constexpr const char *kTimeUuid    = "4111f002-810e-4953-9fb2-393ca444e99c";
     constexpr const char *kStatusUuid  = "4111f003-810e-4953-9fb2-393ca444e99c";
+    constexpr const char *kNotifUuid   = "4111f004-810e-4953-9fb2-393ca444e99c";
 
     constexpr int kQueueLen = 8;
 
@@ -70,6 +73,10 @@ void BleLink::begin() {
     NimBLECharacteristic *statusChr = pager->createCharacteristic(kStatusUuid, NIMBLE_PROPERTY::WRITE);
     statusChr->setCallbacks(&_statusCb);
 
+    // Caractéristique « notification », en écriture
+    NimBLECharacteristic *notifChr = pager->createCharacteristic(kNotifUuid, NIMBLE_PROPERTY::WRITE);
+    notifChr->setCallbacks(&_notifCb);
+
     // Service batterie standard (0x180F), niveau (0x2A19) : lisible et notifiable
     NimBLEService *battery = server->createService("180F");
     _batteryChar = battery->createCharacteristic("2A19", NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
@@ -85,7 +92,7 @@ void BleLink::begin() {
 
 // ---------------------------------------------------------------- loop()
 
-void BleLink::update(Clock &clock, PhoneStatus &phone) {
+void BleLink::update(Clock &clock, PhoneStatus &phone, NotificationStore &notifs, Haptics &haptics) {
     if (!_queue) return;
 
     BleEvent e;
@@ -109,12 +116,24 @@ void BleLink::update(Clock &clock, PhoneStatus &phone) {
                 phone.signal    = (e.data[2] == kUnknown || e.data[2] > 4) ? -1 : e.data[2];
                 break;
             }
+            case BleEvent::Type::Notification: {
+                uint8_t vibe = NotificationStore::kVibeNone;
+                if (notifs.handlePacket(e.data, e.len, vibe) == NotificationStore::Result::Added) {
+                    switch (vibe) {
+                        case NotificationStore::kVibeShort:  haptics.shortVibration();  break;
+                        case NotificationStore::kVibeDouble: haptics.doubleVibration(); break;
+                        case NotificationStore::kVibeLong:   haptics.longVibration();   break;
+                        default: break;                      // aucune vibration
+                    }
+                }
+                break;
+            }
+            case BleEvent::Type::Connected:
+                phone = PhoneStatus();       // repart de zéro : tout est inconnu...
+                phone.connected = true;      // ...mais le lien existe
+                break;
             case BleEvent::Type::Disconnected:
                 phone = PhoneStatus();       // tout repasse à « inconnu »
-                break;
-            case BleEvent::Type::Connected:
-                phone = PhoneStatus();
-                phone.connected = true;
                 break;
         }
     }

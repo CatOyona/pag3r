@@ -7,6 +7,7 @@
 #include "Clock.h"
 #include "Haptics.h"
 #include "PhoneStatus.h"
+#include "NotificationStore.h"
 
 Buttons buttons;
 Battery battery;
@@ -15,6 +16,7 @@ Ui ui(phone);
 BleLink ble;
 Clock   deviceClock;
 Haptics haptics;
+NotificationStore notifs;
 
 void setup() {
     Serial.begin(115200);
@@ -31,7 +33,7 @@ void loop() {
     ui.handleInput(buttons);
     ui.updateBattery(battery);
     ui.draw();
-    ble.update(deviceClock, phone);
+    ble.update(deviceClock, notifs, phone);
     ble.setBattery(battery.getPercentage());
     ui.updateClock(deviceClock);
     haptics.update();
